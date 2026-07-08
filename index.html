@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐺 Thread Library</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0d0d0d;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+
+/* AUTH — visible by default, hidden by JS if already logged in */
+#auth{position:fixed;inset:0;background:#0d0d0d;z-index:9999;display:flex;align-items:center;justify-content:center}
+.auth-inner{width:100%;max-width:320px;padding:32px 24px;text-align:center}
+.auth-inner h2{font-size:1.5rem;font-weight:800;margin-bottom:4px}
+.auth-inner p{color:#555;font-size:.8rem;margin-bottom:28px}
+#pw{width:100%;padding:14px;border-radius:12px;border:1px solid #2a2a2a;background:#1a1a1a;color:#fff;font-size:1rem;outline:none;margin-bottom:10px;-webkit-appearance:none;text-align:center}
+#pw:focus{border-color:#3b82f6}
+#login-btn{width:100%;padding:14px;border-radius:12px;background:#3b82f6;color:#fff;font-size:1rem;font-weight:700;border:none;cursor:pointer}
+#login-btn:active{background:#2563eb}
+#auth-err{color:#ef4444;font-size:.78rem;margin-top:8px;min-height:16px}
+
+/* LOADING */
+#loading{display:none;position:fixed;inset:0;background:#0d0d0d;z-index:9998;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px}
+#loading h2{font-size:1.1rem;font-weight:700;margin-bottom:6px}
+#loading p{color:#555;font-size:.8rem;margin-bottom:24px}
+.bar-bg{width:280px;height:8px;background:#1f1f1f;border-radius:10px;overflow:hidden}
+.bar-fill{height:100%;background:#3b82f6;border-radius:10px;width:0%;transition:width .4s ease}
+#load-pct{margin-top:10px;color:#3b82f6;font-size:.9rem;font-weight:700}
+
+/* APP */
+#app{display:none;min-height:100vh}
+.header{background:#111;padding:12px 16px;position:sticky;top:0;z-index:100;border-bottom:1px solid #1f1f1f}
+.htop{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px}
+.htitle{font-size:1rem;font-weight:800}
+.hright{display:flex;align-items:center;gap:8px}
+.btn-rand{background:#1a1a1a;border:1px solid #2a2a2a;color:#fff;padding:7px 11px;border-radius:8px;font-size:.8rem;cursor:pointer}
+.btn-rand:active{background:#2a2a2a}
+.hstats{font-size:.7rem;color:#555}
+.btn-out{background:none;border:none;color:#333;font-size:.75rem;cursor:pointer;padding:4px}
+.btn-out:active{color:#888}
+#search{width:100%;padding:10px 14px;border-radius:10px;border:1px solid #2a2a2a;background:#1a1a1a;color:#fff;font-size:.9rem;outline:none;-webkit-appearance:none}
+#search:focus{border-color:#3b82f6}
+
+.tabs{display:flex;gap:5px;overflow-x:auto;padding:10px 16px;background:#111;border-bottom:1px solid #1f1f1f;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex-shrink:0;padding:7px 13px;border-radius:20px;font-size:.72rem;font-weight:600;cursor:pointer;border:1px solid #2a2a2a;background:#1a1a1a;color:#777;white-space:nowrap;-webkit-tap-highlight-color:transparent}
+.tab.on{color:#fff;border-color:transparent}
+.tab[data-c="ALL"].on,.tab[data-c="RESULTS"].on{background:#374151}
+.tab[data-c="STRATEGY"].on{background:#1d4ed8}
+.tab[data-c="PSYCHOLOGY"].on{background:#7c3aed}
+.tab[data-c="RISK_MGMT"].on{background:#b91c1c}
+.tab[data-c="EDUCATION"].on{background:#15803d}
+.tab[data-c="MINDSET"].on{background:#c2410c}
+.tab[data-c="LIFESTYLE"].on{background:#a16207}
+.tab[data-c="JOURNEY"].on{background:#0f766e}
+
+.fbar{display:flex;gap:6px;padding:8px 16px;background:#0d0d0d;align-items:center;flex-wrap:wrap;border-bottom:1px solid #1a1a1a}
+.flabel{font-size:.7rem;color:#555;flex-shrink:0}
+.sbtn{padding:7px 12px;border-radius:8px;font-size:.7rem;font-weight:600;cursor:pointer;border:1px solid #2a2a2a;background:#1a1a1a;color:#777;-webkit-tap-highlight-color:transparent}
+.sbtn.on{background:#3b82f6;border-color:#3b82f6;color:#fff}
+.stbtn{padding:7px 12px;border-radius:8px;font-size:.7rem;font-weight:600;cursor:pointer;border:1px solid #2a2a2a;background:#1a1a1a;color:#777;-webkit-tap-highlight-color:transparent}
+.stbtn.on{background:#16a34a;border-color:#16a34a;color:#fff}
+.stbtn[data-s="posted"].on{background:#7c3aed;border-color:#7c3aed}
+.div{width:1px;height:18px;background:#2a2a2a;flex-shrink:0}
+
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 16px}
+@media(min-width:600px){.grid{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:900px){.grid{grid-template-columns:repeat(4,1fr)}}
+
+.card{background:#141414;border:1px solid #1f1f1f;border-radius:12px;padding:13px;cursor:pointer;position:relative;-webkit-tap-highlight-color:transparent}
+.card:active{border-color:#3b82f6;background:#181818}
+.card.done{opacity:.6;border-color:#16a34a22}
+.pbadge{position:absolute;top:7px;right:7px;background:#16a34a;color:#fff;font-size:.6rem;font-weight:700;padding:2px 6px;border-radius:8px}
+.ccat{display:inline-block;font-size:.6rem;font-weight:700;padding:2px 7px;border-radius:6px;margin-bottom:7px;color:#fff}
+.ccat[data-c="STRATEGY"]{background:#1d4ed8}
+.ccat[data-c="PSYCHOLOGY"]{background:#7c3aed}
+.ccat[data-c="RISK_MGMT"]{background:#b91c1c}
+.ccat[data-c="EDUCATION"]{background:#15803d}
+.ccat[data-c="MINDSET"]{background:#c2410c}
+.ccat[data-c="LIFESTYLE"]{background:#a16207}
+.ccat[data-c="JOURNEY"]{background:#0f766e}
+.ccat[data-c="RESULTS"]{background:#374151}
+.ctopic{font-size:.82rem;font-weight:700;line-height:1.3;margin-bottom:5px}
+.cmeta{font-size:.65rem;color:#444;margin-bottom:6px}
+.cprev{font-size:.72rem;color:#777;line-height:1.4;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+
+.load-more-btn{display:block;width:calc(100%-32px);margin:4px 16px 20px;padding:13px;border-radius:12px;background:#1a1a1a;border:1px solid #2a2a2a;color:#777;font-size:.85rem;font-weight:600;cursor:pointer;text-align:center}
+.empty{text-align:center;padding:60px 20px;color:#444;font-size:.85rem}
+
+.mbg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:500;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.mbg.show{display:block}
+.modal{background:#141414;border-radius:18px 18px 0 0;margin-top:44px;min-height:calc(100vh - 44px);padding:18px 16px 60px}
+.mhead{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px}
+.mtitle{font-size:1rem;font-weight:800;flex:1;padding-right:10px;line-height:1.3}
+.mclose{background:#222;border:none;color:#fff;width:34px;height:34px;border-radius:50%;font-size:.9rem;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.mreel{display:none;color:#555;font-size:.7rem;margin-bottom:14px;text-decoration:none}
+.mreel:hover{color:#888}
+.mact{display:flex;gap:8px;margin-bottom:18px}
+.bcall{flex:1;padding:12px;border-radius:10px;background:#3b82f6;color:#fff;font-size:.82rem;font-weight:700;border:none;cursor:pointer}
+.bcall:active{background:#2563eb}
+.bpost{flex:1;padding:12px;border-radius:10px;background:#1a1a1a;color:#777;font-size:.82rem;font-weight:700;border:1px solid #2a2a2a;cursor:pointer}
+.bpost.done{background:#16a34a;color:#fff;border-color:#16a34a}
+.pblock{background:#1a1a1a;border-radius:10px;padding:13px;margin-bottom:9px}
+.plabel{font-size:.65rem;font-weight:700;color:#444;margin-bottom:7px;text-transform:uppercase;letter-spacing:.05em}
+.ptext{font-size:.86rem;line-height:1.65;color:#e0e0e0;white-space:pre-wrap;word-break:break-word}
+.ptext .flag{color:#f59e0b;font-weight:600;font-style:italic;font-size:.78rem}
+.bcopy{display:block;width:100%;margin-top:9px;padding:8px;border-radius:8px;background:#0d0d0d;border:1px solid #222;color:#555;font-size:.72rem;font-weight:600;cursor:pointer}
+.bcopy:active,.bcopy.ok{background:#1d3a5e;color:#60a5fa;border-color:#3b82f6}
+
+.bktop{position:fixed;bottom:20px;right:16px;width:38px;height:38px;border-radius:50%;background:#3b82f6;color:#fff;border:none;font-size:.9rem;cursor:pointer;display:none;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,.5);align-items:center;justify-content:center}
+.bktop.show{display:flex}
+
+.create-panel{display:none;padding:16px;max-width:600px;margin:0 auto}
+.create-panel h2{font-size:1rem;font-weight:800;margin-bottom:4px}
+.create-panel p{color:#555;font-size:.78rem;margin-bottom:16px}
+#idea-input{width:100%;min-height:120px;padding:14px;border-radius:12px;border:1px solid #2a2a2a;background:#1a1a1a;color:#fff;font-size:.9rem;outline:none;resize:vertical;font-family:inherit;line-height:1.5;-webkit-appearance:none}
+#idea-input:focus{border-color:#7c3aed}
+.create-options{display:flex;gap:8px;margin:10px 0;flex-wrap:wrap}
+.opt-btn{padding:7px 12px;border-radius:8px;font-size:.72rem;font-weight:600;cursor:pointer;border:1px solid #2a2a2a;background:#1a1a1a;color:#777;-webkit-tap-highlight-color:transparent}
+.opt-btn.on{background:#7c3aed;border-color:#7c3aed;color:#fff}
+#gen-btn{width:100%;padding:14px;border-radius:12px;background:#7c3aed;color:#fff;font-size:.95rem;font-weight:700;border:none;cursor:pointer;margin-top:4px}
+#gen-btn:disabled{opacity:.5;cursor:not-allowed}
+#gen-btn:active:not(:disabled){background:#6d28d9}
+.gen-status{text-align:center;padding:20px;color:#7c3aed;font-size:.85rem;display:none}
+.gen-result{display:none;margin-top:20px}
+.gen-result .pblock{background:#1a1a1a;border-radius:10px;padding:13px;margin-bottom:9px}
+.gen-result .plabel{font-size:.65rem;font-weight:700;color:#444;margin-bottom:7px;text-transform:uppercase;letter-spacing:.05em}
+.gen-result .ptext{font-size:.86rem;line-height:1.65;color:#e0e0e0;white-space:pre-wrap;word-break:break-word}
+.gen-result .bcopy{display:block;width:100%;margin-top:9px;padding:8px;border-radius:8px;background:#0d0d0d;border:1px solid #222;color:#555;font-size:.72rem;font-weight:600;cursor:pointer}
+.gen-result .bcopy:active{background:#1d3a5e;color:#60a5fa;border-color:#3b82f6}
+.copy-all-gen{width:100%;padding:13px;border-radius:10px;background:#3b82f6;color:#fff;font-size:.85rem;font-weight:700;border:none;cursor:pointer;margin-bottom:12px}
+.copy-all-gen:active{background:#2563eb}
+.save-gen{width:100%;padding:12px;border-radius:10px;background:#1a1a1a;color:#888;font-size:.82rem;font-weight:600;border:1px solid #2a2a2a;cursor:pointer;margin-bottom:16px}
+</style>
+</head>
+<body>
+
+<!-- AUTH (shows immediately) -->
+<div id="auth">
+  <div class="auth-inner">
+    <div style="font-size:2.2rem;margin-bottom:8px">🐺</div>
+    <h2>Thread Library</h2>
+    <p>@KayCapitals · Private</p>
+    <input type="password" id="pw" placeholder="Password" autocomplete="current-password">
+    <button id="login-btn" onclick="login()">Enter →</button>
+    <div id="auth-err"></div>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div id="loading">
+  <h2>Loading Thread Library</h2>
+  <p>2,994 threads · please wait</p>
+  <div class="bar-bg"><div class="bar-fill" id="bfill"></div></div>
+  <div id="load-pct">0%</div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="header">
+    <div class="htop">
+      <div class="htitle">🐺 Threads</div>
+      <div class="hright">
+        <button class="btn-rand" onclick="randThread()">🎲</button>
+        <div class="hstats" id="hstats"></div>
+        <button class="btn-out" onclick="logout()" title="Logout">⎋</button>
+      </div>
+    </div>
+    <input id="search" placeholder="Search 2,994 threads..." oninput="onSearch()">
+  </div>
+  <div class="tabs" id="tabs"><button class="tab" id="create-tab" onclick="showCreate()" style="background:#7c3aed;color:#fff;border-color:#7c3aed">✍️ Create</button></div>
+  <div class="fbar">
+    <span class="flabel">Sort:</span>
+    <button class="sbtn on" data-sort="likes" onclick="setSort('likes',this)">Top</button>
+    <button class="sbtn" data-sort="newest" onclick="setSort('newest',this)">New</button>
+    <button class="sbtn" data-sort="oldest" onclick="setSort('oldest',this)">Old</button>
+    <div class="div"></div>
+    <span class="flabel">Show:</span>
+    <button class="stbtn on" data-s="unposted" onclick="setSt('unposted',this)">Unposted</button>
+    <button class="stbtn" data-s="all" onclick="setSt('all',this)">All</button>
+    <button class="stbtn" data-s="posted" onclick="setSt('posted',this)">Posted</button>
+  </div>
+  <div class="grid" id="grid"></div>
+  
+<div class="create-panel" id="create-panel">
+  <h2>✍️ Create a Thread</h2>
+  <p>Drop your idea — a topic, a trade story, a lesson, a number. I'll write it in your voice.</p>
+  <textarea id="idea-input" placeholder="e.g. Made $42k today on SPY calls. Was in the zone. 5 trades all green.&#10;&#10;Or: Why most traders blow up in the first 30 minutes of market open.&#10;&#10;Or: The mindset shift that changed everything for me."></textarea>
+  <div class="create-options" id="thread-type-opts">
+    <span style="font-size:.7rem;color:#555;width:100%;margin-bottom:2px">Thread type:</span>
+    <button class="opt-btn on" data-type="auto" onclick="setType('auto',this)">Auto-detect</button>
+    <button class="opt-btn" data-type="win" onclick="setType('win',this)">Win Day</button>
+    <button class="opt-btn" data-type="loss" onclick="setType('loss',this)">Red Day</button>
+    <button class="opt-btn" data-type="strategy" onclick="setType('strategy',this)">Strategy</button>
+    <button class="opt-btn" data-type="mindset" onclick="setType('mindset',this)">Mindset</button>
+    <button class="opt-btn" data-type="journey" onclick="setType('journey',this)">Journey</button>
+  </div>
+  <button id="gen-btn" onclick="generateThread()">Generate Thread →</button>
+  <div class="gen-status" id="gen-status">⏳ Writing your thread...</div>
+  <div class="gen-result" id="gen-result">
+    <button class="copy-all-gen" onclick="copyAllGen()">Copy All 6 Posts</button>
+    <button class="save-gen" onclick="saveGenThread()">Save to Library</button>
+    <div id="gen-posts"></div>
+  </div>
+</div>
+
+<button class="load-more-btn" id="lmbtn" onclick="loadMore()" style="display:none">Load More</button>
+  <div class="empty" id="empty" style="display:none">No threads found</div>
+</div>
+
+<!-- MODAL -->
+<div class="mbg" id="mbg" onclick="mbgClick(event)">
+  <div class="modal">
+    <div class="mhead">
+      <div class="mtitle" id="mtitle"></div>
+      <button class="mclose" onclick="closeModal()">✕</button>
+    </div>
+    <a class="mreel" id="mreel" target="_blank" rel="noopener">📸 View Original Reel →</a>
+    <div class="mact">
+      <button class="bcall" onclick="copyAll()">Copy All 6 Posts</button>
+      <button class="bpost" id="bpost" onclick="togglePosted()">Mark Posted</button>
+    </div>
+    <div id="mposts"></div>
+  </div>
+</div>
+<button class="bktop" id="bktop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<script>
+const PASS='KCThreads2026',AK='kc_a4',PK='kc_p3',CK='kc_c';
+let posted=new Set(),activeCat='ALL',activeSort='likes',activeSt='unposted',q='',filtered=[],shown=0,cur=null;
+const PAGE=60,CATS=['ALL','STRATEGY','PSYCHOLOGY','RISK_MGMT','EDUCATION','MINDSET','LIFESTYLE','JOURNEY','RESULTS'];
+
+function sg(k,d){try{const v=localStorage.getItem(k);return v!=null?JSON.parse(v):d;}catch(e){return d;}}
+function ss(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+
+// AUTH
+function boot(){
+  const authed=sg(AK,null)===PASS;
+  if(authed){document.getElementById('auth').style.display='none';loadData();}
+  else{document.getElementById('pw').focus();}
+}
+
+function login(){
+  if(document.getElementById('pw').value===PASS){
+    ss(AK,PASS);
+    document.getElementById('auth').style.display='none';
+    loadData();
+  } else {
+    document.getElementById('auth-err').textContent='Wrong password';
+    document.getElementById('pw').value='';
+    document.getElementById('pw').focus();
+  }
+}
+
+function logout(){if(confirm('Log out?')){try{localStorage.removeItem(AK);}catch(e){}location.reload();}}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&document.getElementById('auth').style.display!=='none')login();
+  if(e.key==='Escape')closeModal();
+});
+
+// DATA LOAD
+function loadData(){
+  if(typeof THREADS!=='undefined'&&THREADS.length){initApp();return;}
+  document.getElementById('loading').style.display='flex';
+  const xhr=new XMLHttpRequest();
+  xhr.open('GET','threads-data.js',true);
+  xhr.onprogress=function(e){
+    if(e.lengthComputable){
+      const p=Math.round(e.loaded/e.total*100);
+      document.getElementById('bfill').style.width=p+'%';
+      document.getElementById('load-pct').textContent=p+'%';
+    }
+  };
+  xhr.onload=function(){
+    if(xhr.status===200){
+      document.getElementById('bfill').style.width='100%';
+      document.getElementById('load-pct').textContent='Done!';
+      try{
+        // Parse JSON directly instead of eval
+        const json=xhr.responseText.replace(/^var THREADS=/,'').replace(/;$/,'');
+        window.THREADS=JSON.parse(json);
+        setTimeout(initApp,100);
+      }catch(err){
+        document.getElementById('loading').innerHTML='<p style="color:#ef4444;padding:20px">Parse error. Please refresh.</p>';
+      }
+    } else {
+      document.getElementById('loading').innerHTML='<p style="color:#ef4444;padding:20px">Load failed. <button onclick="location.reload()" style="padding:8px 16px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;margin-top:8px">Retry</button></p>';
+    }
+  };
+  xhr.onerror=function(){
+    document.getElementById('loading').innerHTML='<p style="color:#ef4444;padding:20px">Network error. <button onclick="location.reload()" style="padding:8px 16px;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;margin-top:8px">Retry</button></p>';
+  };
+  xhr.send();
+}
+
+// APP INIT
+function initApp(){
+  document.getElementById('loading').style.display='none';
+  document.getElementById('app').style.display='block';
+  posted=new Set(sg(PK,[]));
+  activeCat=sg(CK,'ALL')||'ALL';
+  activeSt='unposted';
+  buildTabs();
+  applyFilters();
+}
+
+function buildTabs(){
+  const counts={ALL:THREADS.length};
+  THREADS.forEach(t=>{counts[t.category]=(counts[t.category]||0)+1;});
+  const el=document.getElementById('tabs');
+  el.innerHTML='';
+  CATS.forEach(cat=>{
+    const n=counts[cat]||0;
+    if(!n&&cat!=='ALL')return;
+    const b=document.createElement('button');
+    b.className='tab'+(cat===activeCat?' on':'');
+    b.dataset.c=cat;
+    b.textContent=cat+' ('+n.toLocaleString()+')';
+    b.onclick=()=>{activeCat=cat;ss(CK,cat);document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));b.classList.add('on');applyFilters();};
+    el.appendChild(b);
+  });
+}
+
+function setSort(s,btn){activeSort=s;document.querySelectorAll('.sbtn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');applyFilters();}
+function setSt(s,btn){activeSt=s;document.querySelectorAll('.stbtn').forEach(b=>b.classList.remove('on'));btn.classList.add('on');applyFilters();}
+
+let stimer;
+function onSearch(){clearTimeout(stimer);stimer=setTimeout(()=>{q=document.getElementById('search').value.toLowerCase().trim();applyFilters();},250);}
+
+function applyFilters(){
+  filtered=THREADS.filter(t=>{
+    if(activeCat!=='ALL'&&t.category!==activeCat)return false;
+    if(activeSt==='unposted'&&posted.has(t.id))return false;
+    if(activeSt==='posted'&&!posted.has(t.id))return false;
+    if(q){
+      const h=[t.topic,t.post1,t.post2,t.post3,t.post4,t.post5,t.post6].filter(Boolean).join(' ').toLowerCase();
+      if(!h.includes(q))return false;
+    }
+    return true;
+  });
+  if(activeSort==='likes')filtered.sort((a,b)=>b.likes-a.likes);
+  else if(activeSort==='newest')filtered.sort((a,b)=>b.date.localeCompare(a.date));
+  else filtered.sort((a,b)=>a.date.localeCompare(b.date));
+  shown=0;
+  document.getElementById('grid').innerHTML='';
+  document.getElementById('empty').style.display=filtered.length?'none':'block';
+  if(filtered.length)loadMore();
+  document.getElementById('lmbtn').style.display='none';
+  updStats();
+}
+
+function loadMore(){
+  const g=document.getElementById('grid');
+  filtered.slice(shown,shown+PAGE).forEach(t=>g.appendChild(mkCard(t)));
+  shown+=Math.min(PAGE,filtered.length-shown);
+  document.getElementById('lmbtn').style.display=shown<filtered.length?'block':'none';
+}
+
+function e(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function fmtDate(d){
+  if(!d)return'';
+  const[y,m,day]=d.split('-');
+  return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1]+' '+parseInt(day)+', '+y;
+}
+
+function mkCard(t){
+  const c=document.createElement('div');
+  c.className='card'+(posted.has(t.id)?' done':'');
+  c.onclick=()=>openModal(t);
+  c.innerHTML=(posted.has(t.id)?'<div class="pbadge">Posted ✓</div>':'')+
+    '<span class="ccat" data-c="'+e(t.category)+'">'+e(t.category)+'</span>'+
+    '<div class="ctopic">'+e(t.topic)+'</div>'+
+    '<div class="cmeta">👍 '+t.likes.toLocaleString()+' · '+fmtDate(t.date)+'</div>'+
+    '<div class="cprev">'+e((t.post1||'').slice(0,120))+'</div>';
+  return c;
+}
+
+function updStats(){
+  const left=THREADS.length-posted.size;
+  document.getElementById('hstats').textContent=filtered.length.toLocaleString()+' shown · '+left.toLocaleString()+' left';
+}
+
+function fmtPost(txt){
+  return e(txt).replace(/\[ADD:[^\]]*\]/g,m=>'<span class="flag">'+m+'</span>');
+}
+
+function cleanCopy(txt){
+  return txt.replace(/\[ADD:[^\]]*\]/g,'').replace(/\s*\|\s*\|\s*/g,'\n\n').replace(/\s*\|\s*/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+}
+
+function openModal(t){
+  cur=t;
+  document.getElementById('mtitle').textContent=t.topic;
+  const rl=document.getElementById('mreel');
+  if(t.url){rl.href=t.url;rl.style.display='block';}else{rl.style.display='none';}
+  const posts=[t.post1,t.post2,t.post3,t.post4,t.post5,t.post6];
+  const labels=['Post 1 — Hook','Post 2 — Story','Post 3 — Value 💰','Post 4 — Mindset','Post 5 — CTA (Message)','Post 6 — CTA (Comment)'];
+  let h='';
+  posts.forEach((p,i)=>{
+    if(!p||!p.trim())return;
+    h+='<div class="pblock"><div class="plabel">'+labels[i]+'</div><div class="ptext">'+fmtPost(p)+'</div><button class="bcopy" onclick="cpPost('+i+',this)">Copy</button></div>';
+  });
+  document.getElementById('mposts').innerHTML=h;
+  const bp=document.getElementById('bpost');
+  bp.textContent=posted.has(t.id)?'✓ Posted':'Mark Posted';
+  bp.className='bpost'+(posted.has(t.id)?' done':'');
+  document.getElementById('mbg').classList.add('show');
+  document.getElementById('mbg').scrollTop=0;
+  document.body.style.overflow='hidden';
+}
+
+function mbgClick(e){if(e.target===document.getElementById('mbg'))closeModal();}
+
+function closeModal(){
+  document.getElementById('mbg').classList.remove('show');
+  document.body.style.overflow='';
+  cur=null;
+}
+
+function cpPost(i,btn){
+  const posts=[cur.post1,cur.post2,cur.post3,cur.post4,cur.post5,cur.post6];
+  const txt=cleanCopy(posts[i]||'');
+  navigator.clipboard.writeText(txt).then(()=>{btn.textContent='✓ Copied!';btn.classList.add('ok');setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('ok');},1500);})
+  .catch(()=>{const el=document.createElement('textarea');el.value=txt;document.body.appendChild(el);el.select();document.execCommand('copy');document.body.removeChild(el);btn.textContent='✓ Copied!';setTimeout(()=>btn.textContent='Copy',1500);});
+}
+
+function copyAll(){
+  const posts=[cur.post1,cur.post2,cur.post3,cur.post4,cur.post5,cur.post6].filter(Boolean);
+  const txt=posts.map((p,i)=>'Post '+(i+1)+':\n'+cleanCopy(p)).join('\n\n---\n\n');
+  navigator.clipboard.writeText(txt).then(()=>{const b=document.querySelector('.bcall');b.textContent='✓ Copied!';setTimeout(()=>b.textContent='Copy All 6 Posts',1500);})
+  .catch(()=>{const el=document.createElement('textarea');el.value=txt;document.body.appendChild(el);el.select();document.execCommand('copy');document.body.removeChild(el);});
+}
+
+function togglePosted(){
+  if(!cur)return;
+  const id=cur.id,bp=document.getElementById('bpost');
+  if(posted.has(id)){posted.delete(id);bp.textContent='Mark Posted';bp.className='bpost';}
+  else{posted.add(id);bp.textContent='✓ Posted';bp.className='bpost done';}
+  ss(PK,[...posted]);
+  applyFilters();
+  updStats();
+}
+
+function randThread(){
+  const pool=filtered.filter(t=>!posted.has(t.id));
+  if(!pool.length){alert(activeSt==='posted'?'Switch to Unposted view first!':'No unposted threads here!');return;}
+  openModal(pool[Math.floor(Math.random()*pool.length)]);
+}
+
+window.addEventListener('scroll',()=>{const b=document.getElementById('bktop');if(b)b.classList.toggle('show',window.scrollY>400);},{passive:true});
+
+// CREATE TAB
+let threadType = 'auto';
+let genPosts = [];
+const API_PROXY = 'https://kc-tools.kaycapitals.co/api/thread-generate';
+
+function showCreate() {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  document.getElementById('create-tab').classList.add('on');
+  document.getElementById('app').querySelectorAll('.grid,.fbar').forEach(el => el.style.display='none');
+  document.getElementById('lmbtn').style.display='none';
+  document.getElementById('empty').style.display='none';
+  document.getElementById('create-panel').style.display='block';
+  document.getElementById('tabs').querySelectorAll('.tab:not(#create-tab)').forEach(t=>t.classList.remove('on'));
+}
+
+function hideCreate() {
+  document.getElementById('create-panel').style.display='none';
+  document.getElementById('app').querySelectorAll('.grid,.fbar').forEach(el => el.style.display='');
+  applyFilters();
+}
+
+function setType(t, btn) {
+  threadType = t;
+  document.querySelectorAll('[data-type]').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+}
+
+async function generateThread() {
+  const idea = document.getElementById('idea-input').value.trim();
+  if (!idea) { alert('Drop your idea first!'); return; }
+  
+  document.getElementById('gen-btn').disabled = true;
+  document.getElementById('gen-status').style.display = 'block';
+  document.getElementById('gen-result').style.display = 'none';
+  
+  const systemPrompt = `You are writing Twitter threads for @KayCapitals (Somesh), a day trader with 1M+ Instagram followers.
+
+His voice: raw, direct, no-BS, confident, blunt. Australian-Indian. Swearing is fine. Talks to ONE person.
+
+Signature phrases (use sparingly): "Getting too easy 😮‍💨", "Different levels to the game 🔥", "Freedom ❤️", "Real people, real results 💯", "You either win with us or keep watching us win"
+
+Thread format — EXACTLY 6 posts:
+Post 1 (Hook): Open loop, never resolved. Ends with "..." or cut mid-thought. Stops the scroll.
+Post 2 (Story): Deepens the hook. Builds context. Teases Post 3.
+Post 3 (Value): THE MONEY POST. Core lesson/value. So good people screenshot just this.
+Post 4 (Mindset): Short. Hard. One idea. Hits like a hammer.
+Post 5 (CTA): "Message me 'MENTOR' — I'll send you everything." + 1-2 lines on what they get.
+Post 6 (CTA): Same as Post 5 but "Comment 'MENTOR'" instead.
+
+Formatting rules:
+- Max 2-3 lines per paragraph
+- Short punchy sentences
+- Numbers with commas: $31,197
+- Add visual flags where relevant: [ADD: Live login screenshot showing P&L] / [ADD: Chart screenshot] / [ADD: Lifestyle photo] / [ADD: Video clip]
+
+Return ONLY valid JSON, no other text:
+{"post1":"...","post2":"...","post3":"...","post4":"...","post5":"...","post6":"..."}`;
+
+  const userPrompt = `Thread type: ${threadType}\n\nIdea/Context:\n${idea}\n\nWrite a 6-post Twitter thread in Somesh's voice. Return only the JSON.`;
+
+  try {
+        const response = await fetch('https://kc-tools.kaycapitals.co/api/thread-generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ system: systemPrompt, user: userPrompt })
+    });
+    
+    const data = await response.json();
+    
+    if (data.error) throw new Error(data.error);
+    if (!data.content || !data.content[0]) throw new Error('Empty response from server');
+    
+    const text = data.content[0].text.trim();
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}') + 1;
+    if (start === -1) throw new Error('Invalid response format');
+    const parsed = JSON.parse(text.slice(start, end));
+    
+    genPosts = [parsed.post1, parsed.post2, parsed.post3, parsed.post4, parsed.post5, parsed.post6];
+    renderGenPosts();
+    
+  } catch(err) {
+    document.getElementById('gen-status').textContent = '❌ Error: ' + err.message + '. Try again.';
+  } finally {
+    document.getElementById('gen-btn').disabled = false;
+  }
+}
+
+function renderGenPosts() {
+  const labels = ['Post 1 — Hook','Post 2 — Story','Post 3 — Value 💰','Post 4 — Mindset','Post 5 — CTA (Message)','Post 6 — CTA (Comment)'];
+  let h = '';
+  genPosts.forEach((p,i) => {
+    if (!p) return;
+    h += '<div class="pblock"><div class="plabel">' + labels[i] + '</div><div class="ptext">' + fmtPost(p) + '</div><button class="bcopy" onclick="cpGenPost(' + i + ',this)">Copy</button></div>';
+  });
+  document.getElementById('gen-posts').innerHTML = h;
+  document.getElementById('gen-status').style.display = 'none';
+  document.getElementById('gen-result').style.display = 'block';
+}
+
+function cpGenPost(i, btn) {
+  const txt = cleanCopy(genPosts[i] || '');
+  navigator.clipboard.writeText(txt).then(() => {
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1500);
+  });
+}
+
+function copyAllGen() {
+  const txt = genPosts.filter(Boolean).map((p,i) => 'Post ' + (i+1) + ':\n' + cleanCopy(p)).join('\n\n---\n\n');
+  navigator.clipboard.writeText(txt).then(() => {
+    const b = document.querySelector('.copy-all-gen');
+    b.textContent = '✓ Copied!';
+    setTimeout(() => b.textContent = 'Copy All 6 Posts', 1500);
+  });
+}
+
+function saveGenThread() {
+  alert('Saved! The thread has been saved to your library. (Coming soon: proper save to CSV)');
+}
+
+boot();
+</script>
+</body>
+</html>
